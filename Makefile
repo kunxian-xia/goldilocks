@@ -11,7 +11,7 @@ endif
 
 #CXX := mpiCC
 CXX = g++
-CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp
+CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp -mavx2
 LDFLAGS := -lpthread -lgmp -lstdc++ -lomp -lgmpxx -lbenchmark -L$(LIBOMP)
 ASFLAGS := -felf64 
 
@@ -52,6 +52,9 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 $(BUILD_DIR)/%.cc.o: %.cc
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/bench: benchs/bench.cpp $(BUILD_DIR)/$(SRC_DIRS)/*.o
+	$(CXX) -o $@ $< $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
 
 .PHONY: clean
 
