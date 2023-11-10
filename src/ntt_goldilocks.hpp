@@ -56,6 +56,7 @@ public:
         nThreads = _nThreads == 0 ? omp_get_max_threads() : _nThreads;
         extension = extension_;
 
+        // TODO: assert (1 << domainPow == maxDomainSize)
         u_int32_t domainPow = NTT_Goldilocks::log2(maxDomainSize);
 
         mpz_t m_qm1d2;
@@ -70,19 +71,22 @@ public:
         u_int64_t negone = GOLDILOCKS_PRIME - 1;
 
         mpz_import(m_aux, 1, 1, sizeof(u_int64_t), 0, 0, &negone);
-        mpz_add_ui(m_q, m_aux, 1);
-        mpz_fdiv_q_2exp(m_qm1d2, m_aux, 1);
+        mpz_add_ui(m_q, m_aux, 1); //m_q = goldilocks_prime
+        mpz_fdiv_q_2exp(m_qm1d2, m_aux, 1); // (m_q-1)/2
 
-        mpz_set_ui(m_nqr, 2);
-        mpz_powm(m_aux, m_nqr, m_qm1d2, m_q);
-        while (mpz_cmp_ui(m_aux, 1) == 0)
+        mpz_set_ui(m_nqr, 2); // m_nqr = 2
+        mpz_powm(m_aux, m_nqr, m_qm1d2, m_q); // m_aux = 2^((q-1)/2) (mod q)
+        // use the loop to find a quadratic non residue modulo the goldilocks_prime
+        while (mpz_cmp_ui(m_aux, 1) == 0) 
         {
             mpz_add_ui(m_nqr, m_nqr, 1);
             mpz_powm(m_aux, m_nqr, m_qm1d2, m_q);
         }
 
+        // s is the 2-adicity of (q-1)
+        // q - 1 = 2^s * t
         s = 1;
-        mpz_set(m_aux, m_qm1d2);
+        mpz_set(m_aux, m_qm1d2); // m_aux = (q-1) / 2
         while ((!mpz_tstbit(m_aux, 0)) && (s < domainPow))
         {
             mpz_fdiv_q_2exp(m_aux, m_aux, 1);
@@ -95,9 +99,11 @@ public:
         {
             throw std::range_error("Domain size too big for the curve");
         }
+        // s = 32
 
         uint64_t nRoots = 1LL << s;
 
+        // roots = { 1, w^1, w^2, .... } where w is `maxDomainSize`-th root of unity
         roots = (Goldilocks::Element *)malloc(nRoots * sizeof(Goldilocks::Element));
         powTwoInv = (Goldilocks::Element *)malloc((s + 1) * sizeof(Goldilocks::Element));
 
@@ -114,6 +120,7 @@ public:
             // modular inverse of 2
             mpz_set_ui(m_aux, 2);
             mpz_invert(m_aux, m_aux, m_q);
+            gmp_printf("2^(-1) = %Zd\n", m_aux);
             powTwoInv[1] = Goldilocks::fromU64(mpz_get_ui(m_aux));
         }
 
@@ -159,18 +166,47 @@ public:
         r_[0] = powTwoInv[domainPow];
         for (int i = 1; i < N; i++)
         {
+            // doc: used to gen coset = shift * unity_of_roots_group.
             Goldilocks::mul(r[i], r[i - 1], Goldilocks::shift());
             Goldilocks::mul(r_[i], r[i], powTwoInv[domainPow]);
         }
     }
-    void NTT(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t ncols = 1, Goldilocks::Element *buffer = NULL, u_int64_t nphase = NUM_PHASES, u_int64_t nblock = NUM_BLOCKS, bool inverse = false, bool extend = false);
-    void INTT(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t ncols = 1, Goldilocks::Element *buffer = NULL, u_int64_t nphase = NUM_PHASES, u_int64_t nblock = NUM_BLOCKS, bool extend = false);
+    // doc:
+    // run ntt on src, and ntt result is written to dst
+    // handles `ncols` polynomials 
+    // len(src) = size * cols * sizeof(Goldilocks::Element)
+    void NTT(Goldilocks::Element *dst,
+             Goldilocks::Element *src,
+             u_int64_t size,
+             u_int64_t ncols = 1,
+             Goldilocks::Element *buffer = NULL,
+             u_int64_t nphase = NUM_PHASES,
+             u_int64_t nblock = NUM_BLOCKS,
+             bool inverse = false,
+             bool extend = false);
+    void INTT(Goldilocks::Element *dst,
+              Goldilocks::Element *src,
+              u_int64_t size,
+              u_int64_t ncols = 1,
+              Goldilocks::Element *buffer = NULL,
+              u_int64_t nphase = NUM_PHASES,
+              u_int64_t nblock = NUM_BLOCKS,
+              bool extend = false);
     void reversePermutation(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t offset_cols, u_int64_t ncols, u_int64_t ncols_all);
     inline Goldilocks::Element &root(u_int32_t domainPow, u_int64_t idx)
     {
         return roots[idx << (s - domainPow)];
     }
-    void extendPol(Goldilocks::Element *output, Goldilocks::Element *input, uint64_t N_Extended, uint64_t N, uint64_t ncols, Goldilocks::Element *buffer = NULL, u_int64_t nphase = NUM_PHASES, u_int64_t nblock = NUM_BLOCKS);
+    // input has length N * ncols
+    // output has length N_Extended * ncols
+    void extendPol(Goldilocks::Element *output,
+                   Goldilocks::Element *input,
+                   uint64_t N_Extended,
+                   uint64_t N,
+                   uint64_t ncols,
+                   Goldilocks::Element *buffer = NULL,
+                   u_int64_t nphase = NUM_PHASES,
+                   u_int64_t nblock = NUM_BLOCKS);
 };
 
 #endif

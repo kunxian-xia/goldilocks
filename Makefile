@@ -53,6 +53,9 @@ $(BUILD_DIR)/%.cc.o: %.cc
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/test: tests/tests.cpp
+	$(CXX) -o $@ tests/tests.cpp $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+
 .PHONY: clean
 
 clean:
