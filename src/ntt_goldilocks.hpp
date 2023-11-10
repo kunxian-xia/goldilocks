@@ -101,10 +101,12 @@ public:
         }
         // s = 32
 
+        assert(s == 32);
         uint64_t nRoots = 1LL << s;
 
         // roots = { 1, w^1, w^2, .... } where w is `maxDomainSize`-th root of unity
         roots = (Goldilocks::Element *)malloc(nRoots * sizeof(Goldilocks::Element));
+        // powTwoInv = { 1, 2^(-1), 2^(-2), ... }
         powTwoInv = (Goldilocks::Element *)malloc((s + 1) * sizeof(Goldilocks::Element));
 
         roots[0] = Goldilocks::one();
@@ -120,7 +122,9 @@ public:
             // modular inverse of 2
             mpz_set_ui(m_aux, 2);
             mpz_invert(m_aux, m_aux, m_q);
-            gmp_printf("2^(-1) = %Zd\n", m_aux);
+            // gmp_printf("2^(-1) = %Zd\n", m_aux);
+            // 2^(-1) = 2^63 - 2^31 + 1
+            // 2*(2^63 - 2^31 + 1) = 2^64 - 2^32 + 2 = p + 1
             powTwoInv[1] = Goldilocks::fromU64(mpz_get_ui(m_aux));
         }
 
