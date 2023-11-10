@@ -12,7 +12,7 @@ endif
 #CXX := mpiCC
 CXX = g++
 CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp -mavx2
-LDFLAGS := -lpthread -lgmp -lstdc++ -lomp -lgmpxx -lbenchmark -L$(LIBOMP)
+LDFLAGS := -lpthread -lgmp -lstdc++ -lomp -lgmpxx -lgtest -lbenchmark -L$(LIBOMP)
 ASFLAGS := -felf64 
 
 # Debug build flags
