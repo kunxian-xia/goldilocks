@@ -9,7 +9,16 @@ static inline u_int64_t BR(u_int64_t x, u_int64_t domainPow)
     return (((x & 0xAAAAAAAA) >> 1) | ((x & 0x55555555) << 1)) >> (32 - domainPow);
 }
 
-void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t offset_cols, u_int64_t ncols, u_int64_t ncols_all, u_int64_t nphase, Goldilocks::Element *aux, bool inverse, bool extend)
+void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
+                               Goldilocks::Element *src,
+                               u_int64_t size,
+                               u_int64_t offset_cols,
+                               u_int64_t ncols,
+                               u_int64_t ncols_all,
+                               u_int64_t nphase,
+                               Goldilocks::Element *aux,
+                               bool inverse,
+                               bool extend)
 {
     Goldilocks::Element *dst_;
     if (dst != NULL)
@@ -18,6 +27,7 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst, Goldilocks::Element *sr
     }
     else
     {
+        // if dst == NULL, then we need to do "in place" NTT
         dst_ = src;
     }
     Goldilocks::Element *a = dst_;
@@ -100,8 +110,11 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst, Goldilocks::Element *sr
                     j = j % mdiv2;
 
                     Goldilocks::Element w = root(s + si, j);
+                    // doc: butterfly operation
                     for (u_int64_t k = 0; k < ncols; ++k)
                     {
+                        // TODO: use avx512 / avx2 to improve
+                        // k-th polynomial
                         Goldilocks::Element t = w * a[offset1 + k];
                         Goldilocks::Element u = a[offset2 + k];
 
@@ -163,7 +176,15 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst, Goldilocks::Element *sr
     }
 }
 
-void NTT_Goldilocks::NTT(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t ncols, Goldilocks::Element *buffer, u_int64_t nphase, u_int64_t nblock, bool inverse, bool extend)
+void NTT_Goldilocks::NTT(Goldilocks::Element *dst,
+                         Goldilocks::Element *src,
+                         u_int64_t size,
+                         u_int64_t ncols,
+                         Goldilocks::Element *buffer,
+                         u_int64_t nphase,
+                         u_int64_t nblock,
+                         bool inverse, // whether we are doing iNTT
+                         bool extend)
 {
     if (ncols == 0 || size == 0)
     {

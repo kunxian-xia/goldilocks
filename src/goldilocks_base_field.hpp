@@ -25,10 +25,10 @@ public:
 
 private:
     static const Element ZR;
-    static const Element Q;
+    static const Element Q; // modulus
     static const Element MM;
     static const Element CQ;
-    static const Element R2;
+    static const Element R2; // R^2 (mod p)
     static const Element TWO32;
 
     static const Element ZERO;
@@ -682,6 +682,14 @@ inline Goldilocks::Element Goldilocks::dec(const Goldilocks::Element &fe)
 
 inline void Goldilocks::add(Element &result, const Element &in1, const Element &in2)
 {
+    //    a = in_1;
+    //    b = in_b;
+    // 1. if ((a + b) >= 2^64) then a+b = c + 2^64
+    //    else a + b = c + 0
+    //    i.e. %r10 holds carry*2^64 = carry*(2^32 - 1) = carry*CQ
+    // 
+    // 2. c + carry*CQ
+    //    if (c + carry*CQ) >= 2^64) then we need reduce again
     uint64_t in_1 = in1.fe;
     uint64_t in_2 = in2.fe;
     __asm__("xor   %%r10, %%r10\n\t"

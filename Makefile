@@ -54,7 +54,10 @@ $(BUILD_DIR)/%.cc.o: %.cc
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/test: tests/tests.cpp
-	$(CXX) -o $@ tests/tests.cpp $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $< $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+
+$(BUILD_DIR)/bench: benchs/bench.cpp
+	$(CXX) -o $@ $< $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
 
 .PHONY: clean
 

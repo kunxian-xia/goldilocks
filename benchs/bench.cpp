@@ -386,6 +386,7 @@ static void NTT_BENCH(benchmark::State &state)
 {
     NTT_Goldilocks gntt(FFT_SIZE, state.range(0));
 
+    // doc: it use column-major matrix
     Goldilocks::Element *a = (Goldilocks::Element *)malloc((uint64_t)FFT_SIZE * (uint64_t)NUM_COLUMNS * sizeof(Goldilocks::Element));
 
 #pragma omp parallel for
@@ -401,6 +402,7 @@ static void NTT_BENCH(benchmark::State &state)
     }
     for (auto _ : state)
     {
+        // doc: hmm, each thread handles one NTT 
 #pragma omp parallel for num_threads(state.range(0))
         for (u_int64_t i = 0; i < NUM_COLUMNS; i++)
         {
@@ -413,6 +415,7 @@ static void NTT_BENCH(benchmark::State &state)
 
 static void NTT_BLOCK_BENCH(benchmark::State &state)
 {
+    // doc: use row-major matrix format
     Goldilocks::Element *a = (Goldilocks::Element *)malloc((uint64_t)FFT_SIZE * (uint64_t)NUM_COLUMNS * sizeof(Goldilocks::Element));
     NTT_Goldilocks gntt(FFT_SIZE, state.range(0));
 
@@ -440,6 +443,7 @@ static void NTT_BLOCK_BENCH(benchmark::State &state)
 
 static void LDE_BENCH(benchmark::State &state)
 {
+    // column-major matrix
     Goldilocks::Element *a = (Goldilocks::Element *)malloc((uint64_t)FFT_SIZE * (uint64_t)NUM_COLUMNS * sizeof(Goldilocks::Element));
     NTT_Goldilocks gntt(FFT_SIZE, state.range(0));
     NTT_Goldilocks gntt_extension((FFT_SIZE << BLOWUP_FACTOR));
@@ -452,9 +456,10 @@ static void LDE_BENCH(benchmark::State &state)
     }
 
     Goldilocks::Element shift = Goldilocks::fromU64(49); // TODO: ask for this number, where to put it how to calculate it
-    gntt.INTT(a, a, FFT_SIZE);
+    gntt.INTT(a, a, FFT_SIZE*NUM_COLUMNS);
 
     // TODO: This can be pre-generated
+    // r = [shift^0, shift^1, shift^2, ...]
     Goldilocks::Element *r = (Goldilocks::Element *)malloc(FFT_SIZE * sizeof(Goldilocks::Element));
     r[0] = Goldilocks::one();
     for (int i = 1; i < FFT_SIZE; i++)
@@ -476,6 +481,7 @@ static void LDE_BENCH(benchmark::State &state)
 #pragma omp parallel for num_threads(state.range(0))
         for (uint64_t k = 0; k < NUM_COLUMNS; k++)
         {
+            Goldilocks::Element *res = &res[k * (FFT_SIZE << BLOWUP_FACTOR)];
             for (int i = 0; i < FFT_SIZE; i++)
             {
                 a[k * FFT_SIZE + i] = a[k * FFT_SIZE + i] * r[i];
@@ -494,10 +500,13 @@ static void LDE_BENCH(benchmark::State &state)
 
 static void LDE_BLOCK_BENCH(benchmark::State &state)
 {
+    // row-major matrix
     Goldilocks::Element *a = (Goldilocks::Element *)malloc((uint64_t)(FFT_SIZE << BLOWUP_FACTOR) * NUM_COLUMNS * sizeof(Goldilocks::Element));
     NTT_Goldilocks gntt(FFT_SIZE, state.range(0));
     NTT_Goldilocks gntt_extension((FFT_SIZE << BLOWUP_FACTOR));
 
+    // all polys are fibonacci polys.
+    // jth poly has f0 = f1 = 1+j
     for (uint i = 0; i < 2; i++)
     {
         for (uint j = 0; j < NUM_COLUMNS; j++)
@@ -506,6 +515,7 @@ static void LDE_BLOCK_BENCH(benchmark::State &state)
         }
     }
 
+    // for each poly, fi = f(i-1) + f(i-2)
     for (uint64_t i = 2; i < FFT_SIZE; i++)
     {
         for (uint j = 0; j < NUM_COLUMNS; j++)
@@ -513,19 +523,20 @@ static void LDE_BLOCK_BENCH(benchmark::State &state)
             a[i * NUM_COLUMNS + j] = a[NUM_COLUMNS * (i - 1) + j] + a[NUM_COLUMNS * (i - 2) + j];
         }
     }
+
+    // TODO: This can be pre-generated
+    Goldilocks::Element *r = (Goldilocks::Element *)malloc(FFT_SIZE * sizeof(Goldilocks::Element));
+    r[0] = Goldilocks::one();
+    for (int i = 1; i < FFT_SIZE; i++)
+    {
+        r[i] = r[i - 1] * shift;
+    }
+
     for (auto _ : state)
     {
         Goldilocks::Element shift = Goldilocks::fromU64(49); // TODO: ask for this number, where to put it how to calculate it
 
         gntt.INTT(a, a, FFT_SIZE, NUM_COLUMNS, NULL, NPHASES_NTT);
-
-        // TODO: This can be pre-generated
-        Goldilocks::Element *r = (Goldilocks::Element *)malloc(FFT_SIZE * sizeof(Goldilocks::Element));
-        r[0] = Goldilocks::one();
-        for (int i = 1; i < FFT_SIZE; i++)
-        {
-            r[i] = r[i - 1] * shift;
-        }
 
 #pragma omp parallel for
         for (uint64_t i = 0; i < FFT_SIZE; i++)

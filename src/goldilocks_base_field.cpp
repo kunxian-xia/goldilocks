@@ -1,19 +1,25 @@
 #include "goldilocks_base_field.hpp"
 
 const Goldilocks::Element Goldilocks::ZR = {(uint64_t)0x0000000000000000LL};
+// modulus
 const Goldilocks::Element Goldilocks::Q = {(uint64_t)0xFFFFFFFF00000001LL};
+// 2^64 - 2^33 + 2^32 - 1 = 2^64 - 2^32 - 1
+// = p - 2
 const Goldilocks::Element Goldilocks::MM = {(uint64_t)0xFFFFFFFeFFFFFFFFLL};
+// 2^32 - 1
 const Goldilocks::Element Goldilocks::CQ = {(uint64_t)0x00000000FFFFFFFFLL};
+// R = 2^64 (mod p)
+// R^2 = (2^32 - 1)*(2^32 - 1) = 2^64 - 2^33 + 1
 const Goldilocks::Element Goldilocks::R2 = {(uint64_t)0xFFFFFFFe00000001LL};
 
 const Goldilocks::Element Goldilocks::W[33] = {
-    Goldilocks::fromU64(0x1),
-    Goldilocks::fromU64(18446744069414584320ULL),
-    Goldilocks::fromU64(281474976710656ULL),
-    Goldilocks::fromU64(16777216ULL),
-    Goldilocks::fromU64(4096ULL),
-    Goldilocks::fromU64(64ULL),
-    Goldilocks::fromU64(8ULL),
+    Goldilocks::fromU64(0x1),                     // (2^0)-th root of unity
+    Goldilocks::fromU64(18446744069414584320ULL), // (2^1)-th root of unity
+    Goldilocks::fromU64(281474976710656ULL),      // (2^2)-th root of unity
+    Goldilocks::fromU64(16777216ULL),             // (2^3)-th root of unity
+    Goldilocks::fromU64(4096ULL),                 // (2^4)-th root of unity
+    Goldilocks::fromU64(64ULL),                   // (2^5)-th root of unity
+    Goldilocks::fromU64(8ULL),                    // (2^6)-th root of unity
     Goldilocks::fromU64(2198989700608ULL),
     Goldilocks::fromU64(4404853092538523347ULL),
     Goldilocks::fromU64(6434636298004421797ULL),
@@ -49,8 +55,12 @@ const Goldilocks::Element Goldilocks::TWO32 = {0x0000000100000000LL};
 const Goldilocks::Element Goldilocks::SHIFT = Goldilocks::fromU64(7);
 
 #else
+// 1*R (mod p)
+// R = 2^64 => R (mod p) = 2^32 - 1
 const Goldilocks::Element Goldilocks::ONE = {(uint64_t)0x00000000FFFFFFFFLL};
 const Goldilocks::Element Goldilocks::ZERO = {(uint64_t)0x0000000000000000LL};
+// -1*R (mod p)
+// -R is congruent to (2p - R) (mod p) = 2^64 - 2^33 + 2
 const Goldilocks::Element Goldilocks::NEGONE = {(uint64_t)0XFFFFFFFE00000002LL};
 const Goldilocks::Element Goldilocks::SHIFT = Goldilocks::fromU64(7);
 
