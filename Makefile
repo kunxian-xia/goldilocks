@@ -11,7 +11,7 @@ endif
 
 #CXX := mpiCC
 CXX = g++
-CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp
+CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp -mavx2
 LDFLAGS := -lpthread -lgmp -lstdc++ -lomp -lgmpxx -lbenchmark -L$(LIBOMP)
 ASFLAGS := -felf64 
 
