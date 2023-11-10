@@ -99,9 +99,8 @@ public:
         {
             throw std::range_error("Domain size too big for the curve");
         }
-        // s = 32
-
-        assert(s == 32);
+        // s <= 32
+        assert(s <= 32);
         uint64_t nRoots = 1LL << s;
 
         // roots = { 1, w^1, w^2, .... } where w is `maxDomainSize`-th root of unity
