@@ -525,6 +525,7 @@ static void LDE_BLOCK_BENCH(benchmark::State &state)
     }
 
     // TODO: This can be pre-generated
+    Goldilocks::Element shift = Goldilocks::fromU64(49); // TODO: ask for this number, where to put it how to calculate it
     Goldilocks::Element *r = (Goldilocks::Element *)malloc(FFT_SIZE * sizeof(Goldilocks::Element));
     r[0] = Goldilocks::one();
     for (int i = 1; i < FFT_SIZE; i++)
@@ -534,7 +535,6 @@ static void LDE_BLOCK_BENCH(benchmark::State &state)
 
     for (auto _ : state)
     {
-        Goldilocks::Element shift = Goldilocks::fromU64(49); // TODO: ask for this number, where to put it how to calculate it
 
         gntt.INTT(a, a, FFT_SIZE, NUM_COLUMNS, NULL, NPHASES_NTT);
 
