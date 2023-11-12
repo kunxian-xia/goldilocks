@@ -127,7 +127,7 @@ void NTT_Goldilocks::NTT_iters(
 
                     Goldilocks::Element w = root(s + si, j);
                     // doc: butterfly operation
-                    for (u_int64_t k = 0; k < ncols; k += 4) 
+                    for (u_int64_t k = 0; (k < ncols) && ((k + 4) < ncols); k += 4) 
                     {
                         Goldilocks::Element t[4];
                         Goldilocks::Element u[4];
