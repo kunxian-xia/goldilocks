@@ -1,4 +1,5 @@
 #include "ntt_goldilocks.hpp"
+#include "goldilocks_base_field_avx.hpp"
 
 static inline u_int64_t BR(u_int64_t x, u_int64_t domainPow)
 {
