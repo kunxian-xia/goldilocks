@@ -15,8 +15,13 @@ private:
     u_int32_t s = 0;
     u_int32_t nThreads;
     uint64_t nqr;
-    Goldilocks::Element *roots;
+    // N = maxDomainSize
+    // w = `N`-th root of unity
+    // roots = { w^0, w^1, w^2, ..., w^(N - 1) }
+    Goldilocks::Element *roots; 
     Goldilocks::Element *powTwoInv;
+    // s = shift
+    // r = { 1, r^1, r^2, ..., r^}
     Goldilocks::Element *r;
     Goldilocks::Element *r_;
     int extension;
@@ -34,7 +39,18 @@ private:
             return res;
         }
     }
-    void NTT_iters(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t offset_cols, u_int64_t ncols, u_int64_t ncols_all, u_int64_t nphase, Goldilocks::Element *aux, bool inverse, bool extend);
+    void NTT_iters(
+        Goldilocks::Element *dst,
+        Goldilocks::Element *src,
+        u_int64_t size,
+        u_int64_t offset_cols,
+        u_int64_t ncols,
+        u_int64_t ncols_all,
+        u_int64_t nphase,
+        Goldilocks::Element *aux,
+        bool inverse,
+        bool extend);
+
     inline int intt_idx(int i, int N)
     {
         int ind1 = N - i;
@@ -183,8 +199,8 @@ public:
              u_int64_t size,
              u_int64_t ncols = 1,
              Goldilocks::Element *buffer = NULL,
-             u_int64_t nphase = NUM_PHASES,
-             u_int64_t nblock = NUM_BLOCKS,
+             u_int64_t nphase = NUM_PHASES, // TODO: nphase ?? 
+             u_int64_t nblock = NUM_BLOCKS, // TODO: nblock ??
              bool inverse = false,
              bool extend = false);
     void INTT(Goldilocks::Element *dst,

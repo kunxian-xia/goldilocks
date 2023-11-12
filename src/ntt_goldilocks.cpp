@@ -9,16 +9,17 @@ static inline u_int64_t BR(u_int64_t x, u_int64_t domainPow)
     return (((x & 0xAAAAAAAA) >> 1) | ((x & 0x55555555) << 1)) >> (32 - domainPow);
 }
 
-void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
-                               Goldilocks::Element *src,
-                               u_int64_t size,
-                               u_int64_t offset_cols,
-                               u_int64_t ncols,
-                               u_int64_t ncols_all,
-                               u_int64_t nphase,
-                               Goldilocks::Element *aux,
-                               bool inverse,
-                               bool extend)
+void NTT_Goldilocks::NTT_iters(
+    Goldilocks::Element *dst,
+    Goldilocks::Element *src,
+    u_int64_t size,
+    u_int64_t offset_cols,
+    u_int64_t ncols,
+    u_int64_t ncols_all,
+    u_int64_t nphase,
+    Goldilocks::Element *aux,
+    bool inverse,
+    bool extend)
 {
     Goldilocks::Element *dst_;
     if (dst != NULL)
@@ -27,7 +28,7 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
     }
     else
     {
-        // if dst == NULL, then we need to do "in place" NTT
+        // if dst == NULL, then we will do "in place" NTT
         dst_ = src;
     }
     Goldilocks::Element *a = dst_;
@@ -44,6 +45,8 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
     {
         nphase = domainPow;
     }
+    // for NTT over poly that has `size` elements
+    // we need to do `domainPow` layers
     u_int64_t maxBatchPow = s / nphase;
     u_int64_t res = s % nphase;
     if (res > 0)
@@ -74,12 +77,14 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
         {
             maxBatchPow -= 1;
         }
-        u_int64_t sInc = s + maxBatchPow <= domainPow ? maxBatchPow : domainPow - s + 1;
+        // num of layers to do in this phase
+        u_int64_t sInc = ((s + maxBatchPow) <= domainPow) ? maxBatchPow : domainPow - s + 1;
         u_int64_t rs = s - 1;
         u_int64_t re = domainPow - 1;
         u_int64_t rb = 1 << rs;
         u_int64_t rm = (1 << (re - rs)) - 1;
         u_int64_t batchSize = 1 << sInc;
+        // nBatches is decreasing when s increases.
         u_int64_t nBatches = size / batchSize;
 
         int chunk1 = nBatches / nThreads;
@@ -91,17 +96,27 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
 #pragma omp parallel for schedule(static, chunk1)
         for (u_int64_t b = 0; b < nBatches; b++)
         {
+            // we are doing radix-(2^sInc) NTT
+            // and the indices in one batch are 
+            // batchSize = 2^sInc
+            // { k, 2^(s-1) + k, 2^s + k, 3*2^(s-1) + k, 2^(s+1) + k, ...., 2^(s-1)*(2^sInc - 1) +k  }
+            // sInc = 3, s = 1, { k, k+1, k+2, k+3, ..., k+7 }
+            // sInc = 3, s = 4, { k, k+8, k+2*8, k+3*8, ..., k+7*8 }
+
             for (u_int64_t si = 0; si < sInc; si++)
             {
+                // s + si is the actual layer idx
                 u_int64_t m = 1 << (s + si);
                 u_int64_t mdiv2 = m >> 1;
                 u_int64_t mdiv2i = 1 << si;
                 u_int64_t mi = mdiv2i * 2;
                 for (u_int64_t i = 0; i < (batchSize >> 1); i++)
                 {
+                    // k = b * batchSize
                     u_int64_t ki = b * batchSize + (i / mdiv2i) * mi;
                     u_int64_t ji = i % mdiv2i;
 
+                    // offset1 > offset2
                     u_int64_t offset1 = (ki + ji + mdiv2i) * ncols;
                     u_int64_t offset2 = (ki + ji) * ncols;
 
@@ -111,7 +126,17 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
 
                     Goldilocks::Element w = root(s + si, j);
                     // doc: butterfly operation
-                    for (u_int64_t k = 0; k < ncols; ++k)
+                    for (u_int64_t k = 0; k < ncols; k += 4) 
+                    {
+                        Goldilocks::Element t[4];
+                        Goldilocks::Element u[4];
+                        Goldilocks::mul_avx(t, w, &a[offset1+k], 1);
+                        Goldilocks::copy_avx(u, &a[offset2+k]);
+
+                        Goldilocks::add_avx(&a[offset2+k], t, u);
+                        Goldilocks::sub_avx(&a[offset1+k], u, t);
+                    }
+                    for (u_int64_t k = 4* (ncols / 4); k < ncols; ++k)
                     {
                         // TODO: use avx512 / avx2 to improve
                         // k-th polynomial
@@ -127,6 +152,7 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
             {
                 for (u_int64_t x = 0; x < batchSize; x++)
                 {
+                    // TODO: why is the dstY offset defined as follows???? 
                     u_int64_t offset_dstY = (x * nBatches + b) * ncols;
                     u_int64_t offset_src = (b * batchSize + x) * ncols;
                     std::memcpy(&a2[offset_dstY], &a[offset_src], ncols * sizeof(Goldilocks::Element));
@@ -134,8 +160,12 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
             }
             else
             {
+                // two cases
+                // 1. for the last phase in INTT
+                // 2. for the extended NTT of LDE
                 if (extend)
                 {
+                    // case 2
                     for (u_int64_t x = 0; x < batchSize; x++)
                     {
                         u_int64_t dsty = intt_idx((x * nBatches + b), size);
@@ -149,6 +179,7 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
                 }
                 else
                 {
+                    // case 1
                     for (u_int64_t x = 0; x < batchSize; x++)
                     {
                         u_int64_t dsty = intt_idx((x * nBatches + b), size);
@@ -162,6 +193,8 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
                 }
             }
         }
+
+        // swap a2 and a
         tmp = a2;
         a2 = a;
         a = tmp;
@@ -176,15 +209,16 @@ void NTT_Goldilocks::NTT_iters(Goldilocks::Element *dst,
     }
 }
 
-void NTT_Goldilocks::NTT(Goldilocks::Element *dst,
-                         Goldilocks::Element *src,
-                         u_int64_t size,
-                         u_int64_t ncols,
-                         Goldilocks::Element *buffer,
-                         u_int64_t nphase,
-                         u_int64_t nblock,
-                         bool inverse, // whether we are doing iNTT
-                         bool extend)
+void NTT_Goldilocks::NTT(
+    Goldilocks::Element *dst,
+    Goldilocks::Element *src,
+    u_int64_t size,
+    u_int64_t ncols,
+    Goldilocks::Element *buffer,
+    u_int64_t nphase,
+    u_int64_t nblock,
+    bool inverse, // whether we are doing iNTT
+    bool extend)
 {
     if (ncols == 0 || size == 0)
     {
@@ -200,7 +234,7 @@ void NTT_Goldilocks::NTT(Goldilocks::Element *dst,
     }
 
     u_int64_t offset_cols = 0;
-    u_int64_t ncols_block = ncols / nblock;
+    u_int64_t ncols_block = ncols / nblock; // ncols per block
     u_int64_t ncols_res = ncols % nblock;
     u_int64_t ncols_alloc = ncols_block;
     if (ncols_res > 0)
@@ -325,7 +359,15 @@ void NTT_Goldilocks::reversePermutation(Goldilocks::Element *dst, Goldilocks::El
     }
 }
 
-void NTT_Goldilocks::INTT(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t ncols, Goldilocks::Element *buffer, u_int64_t nphase, u_int64_t nblock, bool extend)
+void NTT_Goldilocks::INTT(
+    Goldilocks::Element *dst,
+    Goldilocks::Element *src,
+    u_int64_t size,
+    u_int64_t ncols,
+    Goldilocks::Element *buffer,
+    u_int64_t nphase,
+    u_int64_t nblock,
+    bool extend)
 {
 
     if (ncols == 0 || size == 0)
@@ -333,6 +375,8 @@ void NTT_Goldilocks::INTT(Goldilocks::Element *dst, Goldilocks::Element *src, u_
         return;
     }
     Goldilocks::Element *dst_;
+    // if dst == NULL, then use in-place NTT
+    // else 
     if (dst == NULL)
     {
         dst_ = src;
@@ -344,7 +388,15 @@ void NTT_Goldilocks::INTT(Goldilocks::Element *dst, Goldilocks::Element *src, u_
     NTT(dst_, src, size, ncols, buffer, nphase, nblock, true, extend);
 }
 
-void NTT_Goldilocks::extendPol(Goldilocks::Element *output, Goldilocks::Element *input, uint64_t N_Extended, uint64_t N, uint64_t ncols, Goldilocks::Element *buffer, u_int64_t nphase, u_int64_t nblock)
+void NTT_Goldilocks::extendPol(
+    Goldilocks::Element *output,
+    Goldilocks::Element *input,
+    uint64_t N_Extended,
+    uint64_t N,
+    uint64_t ncols,
+    Goldilocks::Element *buffer,
+    u_int64_t nphase,
+    u_int64_t nblock)
 {
     NTT_Goldilocks ntt_extension(N_Extended, nThreads, N_Extended / N);
 
@@ -364,6 +416,7 @@ void NTT_Goldilocks::extendPol(Goldilocks::Element *output, Goldilocks::Element 
     }
 
     INTT(output, input, N, ncols, tmp, nphase, nblock, true);
+    // why no output * shift^i
     ntt_extension.NTT(output, output, N_Extended, ncols, tmp, nphase, nblock);
 
     if (buffer == NULL)
