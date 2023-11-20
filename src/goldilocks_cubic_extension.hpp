@@ -50,6 +50,7 @@ public:
     };
     static inline bool isOne(Element &result)
     {
+        // BUG: should be isOne(result[0]) && isZero(result[1]) && isZero(result[2])
         return Goldilocks::isOne(result[0]) && Goldilocks::isOne(result[0]) && Goldilocks::isOne(result[0]);
     };
 
@@ -280,9 +281,17 @@ public:
         }
     }
 
+    // TODO: bench add_avx
     static inline void add_avx(Goldilocks::Element *result, const Goldilocks::Element *a, const Goldilocks::Element *b)
     {
 
+        // memory layout of 4 cubic extension elements
+        // a[0][0] a[1][0] a[2][0] a[3][0]
+        // a[0][1] a[1][1] a[2][1] a[3][1]
+        // a[0][2] a[1][2] a[2][2] a[3][2]
+
+        // a: 4 cubic extension elements
+        // b: 4 cubic extension elements
         __m256i a0_, a1_, a2_;
         __m256i b0_, b1_, b2_;
         __m256i c0_, c1_, c2_;
@@ -1287,8 +1296,19 @@ public:
     {
         mul(result, a, b);
     }
+    // 6 mul + 8 add + 6 sub
     static inline void mul(Element &result, Element &a, Element &b)
     {
+        // x^3 - x - 1 = 0
+        // x^3 = x+1
+        // x^4 = x^2 + x
+
+        // a0 + a1*x + a2*x^2
+        // b0 + b1*x + b2*x^2
+        // a*b = a0*b0 + (a1*b0 + a0*b1)*x + (a0*b2 + a1*b1 + a2*b0)*x^2
+        //       + (a1*b2 + a2*b1)*(x^3) + a2*b2*x^4
+        //     = a0*b0 + (a1*b2 + a2*b1) + (a1*b0 + a0*b1 + a1*b2 + a2*b1 + a2*b2)*x 
+        //        + (a0*b2 + a1*b1 + a2*b0 + a2*b2)*x^2
         Goldilocks::Element A = (a[0] + a[1]) * (b[0] + b[1]);
         Goldilocks::Element B = (a[0] + a[2]) * (b[0] + b[2]);
         Goldilocks::Element C = (a[1] + a[2]) * (b[1] + b[2]);
@@ -1611,6 +1631,11 @@ public:
     }
     static inline void mul_avx(Goldilocks::Element *result, Goldilocks::Element *a, Goldilocks::Element *b)
     {
+        // the memory layout of a is row-major matrix where each row has 3 goldilocks elements
+        // a[0][0] a[0][1] a[0][2]
+        // a[1][0] a[1][1] a[1][2]
+        // a[2][0] a[2][1] a[2][2]
+        // a[3][0] a[3][1] a[3][2]
         assert(NROWS_ == 4);
         Goldilocks::Element a0[4], a1[4], a2[4];
         Goldilocks::Element b0[4], b1[4], b2[4];
@@ -1642,27 +1667,33 @@ public:
         __m256i result0_, result1_, result2_, auxr_;
         Goldilocks::Element result0[4], result1[4], result2[4];
 
+        // A = (a[0] + a[1])*(b[0] + b[1])
+        // B = (a[0] + a[2])*(b[0] + b[2])
+        // C = (a[1] + a[2])*(b[1] + b[2])
+        // D = a[0] * b[0] 
+        // E = a[1] * b[1]
+        // F = a[2] * b[2]
         Goldilocks::add_avx(A_, a0_, a1_);
         Goldilocks::add_avx(B_, a0_, a2_);
         Goldilocks::add_avx(C_, a1_, a2_);
         Goldilocks::add_avx(aux0_, b0_, b1_);
         Goldilocks::add_avx(aux1_, b0_, b2_);
         Goldilocks::add_avx(aux2_, b1_, b2_);
-        Goldilocks::mult_avx(A_, A_, aux0_);
-        Goldilocks::mult_avx(B_, B_, aux1_);
-        Goldilocks::mult_avx(C_, C_, aux2_);
-        Goldilocks::mult_avx(D_, a0_, b0_);
-        Goldilocks::mult_avx(E_, a1_, b1_);
-        Goldilocks::mult_avx(F_, a2_, b2_);
-        Goldilocks::sub_avx(G_, D_, E_);
+        Goldilocks::mult_avx(A_, A_, aux0_); // A
+        Goldilocks::mult_avx(B_, B_, aux1_); // B
+        Goldilocks::mult_avx(C_, C_, aux2_); // C
+        Goldilocks::mult_avx(D_, a0_, b0_); // D
+        Goldilocks::mult_avx(E_, a1_, b1_); // E
+        Goldilocks::mult_avx(F_, a2_, b2_); // F
+        Goldilocks::sub_avx(G_, D_, E_); // G
 
-        Goldilocks::add_avx(result0_, C_, G_);
+        Goldilocks::add_avx(result0_, C_, G_); // C + G - F
         Goldilocks::sub_avx(result0_, result0_, F_);
-        Goldilocks::add_avx(result1_, A_, C_);
-        Goldilocks::add_avx(auxr_, E_, E_);
+        Goldilocks::add_avx(result1_, A_, C_); // A + C = a0*b0 + (a1*b0 + a0*b1) + a1*b1 + (a1*b2 + a2*b1) + a1*b1 + (a2*b2)
+        Goldilocks::add_avx(auxr_, E_, E_); // 2*(a1*b1)
         Goldilocks::add_avx(auxr_, auxr_, D_);
         Goldilocks::sub_avx(result1_, result1_, auxr_);
-        Goldilocks::sub_avx(result2_, B_, G_);
+        Goldilocks::sub_avx(result2_, B_, G_); // a0*b2 + a2*b0 + a2*b2 + a1*b1
 
         Goldilocks::store(result0, result0_);
         Goldilocks::store(result1, result1_);

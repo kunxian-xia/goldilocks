@@ -129,6 +129,8 @@ void NTT_Goldilocks::NTT_iters(
                     // doc: butterfly operation
                     for (u_int64_t k = 0; (k < ncols) && ((k + 4) < ncols); k += 4) 
                     {
+                        // TODO: use avx512 / avx2 to improve
+                        // k-th polynomial
                         Goldilocks::Element t[4];
                         Goldilocks::Element u[4];
                         Goldilocks::mul_avx(t, w, &a[offset1+k], 1);
@@ -139,8 +141,6 @@ void NTT_Goldilocks::NTT_iters(
                     }
                     for (u_int64_t k = 4* (ncols / 4); k < ncols; ++k)
                     {
-                        // TODO: use avx512 / avx2 to improve
-                        // k-th polynomial
                         Goldilocks::Element t = w * a[offset1 + k];
                         Goldilocks::Element u = a[offset2 + k];
 
