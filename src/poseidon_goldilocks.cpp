@@ -119,12 +119,17 @@ void PoseidonGoldilocks::hash_full_result_seq(Goldilocks::Element *state, const 
     const int length = SPONGE_WIDTH * sizeof(Goldilocks::Element);
     std::memcpy(state, input, length);
 
-    add_(state, &(PoseidonGoldilocksConstants::C[0]));
+    add_(state, &(PoseidonGoldilocksConstants::C[0])); // c[0] ... c[11]
     for (int r = 0; r < HALF_N_FULL_ROUNDS - 1; r++)
     {
+        // c[(r+1)*12] ... c[(r+2)*12]
+        // c[12] ... c[24]
+        // c[24] ... c[36]
+        // c[36] ... c[48]
         pow7add_(state, &(PoseidonGoldilocksConstants::C[(r + 1) * SPONGE_WIDTH]));
         mvp_(state, PoseidonGoldilocksConstants::M);
     }
+    // c[48] ... c[60]
     pow7add_(state, &(PoseidonGoldilocksConstants::C[(HALF_N_FULL_ROUNDS * SPONGE_WIDTH)]));
     mvp_(state, PoseidonGoldilocksConstants::P);
 

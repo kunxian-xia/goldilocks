@@ -214,6 +214,7 @@ static void POSEIDON_BENCH_AVX(benchmark::State &state)
 
 static void LINEAR_HASH_BENCH(benchmark::State &state)
 {
+    // row-major matrix layout
     Goldilocks::Element *cols = (Goldilocks::Element *)malloc((uint64_t)NCOLS_HASH * (uint64_t)NROWS_HASH * sizeof(Goldilocks::Element));
     Goldilocks::Element *result = (Goldilocks::Element *)malloc((uint64_t)HASH_SIZE * (uint64_t)NROWS_HASH * sizeof(Goldilocks::Element));
 
@@ -246,6 +247,7 @@ static void LINEAR_HASH_BENCH(benchmark::State &state)
             Goldilocks::Element temp_result[HASH_SIZE];
 
             std::memcpy(&intermediate[0], &cols[i * NCOLS_HASH], NCOLS_HASH * sizeof(Goldilocks::Element));
+            // N -> 4 (100 -> 4)
             PoseidonGoldilocks::linear_hash_seq(temp_result, intermediate, NCOLS_HASH);
             std::memcpy(&result[i * HASH_SIZE], &temp_result[0], HASH_SIZE * sizeof(Goldilocks::Element));
         }
