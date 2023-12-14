@@ -438,6 +438,7 @@ static void NTT_BLOCK_BENCH(benchmark::State &state)
     }
     for (auto _ : state)
     {
+        // in-place NTT for n columns expect the trace matrix having row-major order.
         gntt.NTT(a, a, FFT_SIZE, NUM_COLUMNS, NULL, NPHASES_NTT, NBLOCKS);
     }
     free(a);
@@ -561,6 +562,7 @@ static void LDE_BLOCK_BENCH(benchmark::State &state)
 }
 static void EXTENDEDPOL_BENCH(benchmark::State &state)
 {
+    // note(kunxian): trace matrix has row-major order.
     Goldilocks::Element *a = (Goldilocks::Element *)malloc((uint64_t)(FFT_SIZE << BLOWUP_FACTOR) * NUM_COLUMNS * sizeof(Goldilocks::Element));
     Goldilocks::Element *b = (Goldilocks::Element *)malloc((uint64_t)(FFT_SIZE << BLOWUP_FACTOR) * NUM_COLUMNS * sizeof(Goldilocks::Element));
     Goldilocks::Element *c = (Goldilocks::Element *)malloc((uint64_t)(FFT_SIZE << BLOWUP_FACTOR) * NUM_COLUMNS * sizeof(Goldilocks::Element));
@@ -584,6 +586,7 @@ static void EXTENDEDPOL_BENCH(benchmark::State &state)
     }
     for (auto _ : state)
     {
+        // run lde on a and store the result in b
         ntt.extendPol(b, a, FFT_SIZE << BLOWUP_FACTOR, FFT_SIZE, NUM_COLUMNS, c);
     }
     free(a);

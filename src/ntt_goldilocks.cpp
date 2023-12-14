@@ -37,7 +37,6 @@ void NTT_Goldilocks::NTT_iters(
     Goldilocks::Element *tmp;
 
     u_int64_t domainPow = log2(size);
-    assert(((u_int64_t)1 << domainPow) == size);
     if (nphase < 1 || domainPow == 0)
     {
         nphase = 1;
@@ -212,9 +211,9 @@ void NTT_Goldilocks::NTT_iters(
 
 void NTT_Goldilocks::NTT(
     Goldilocks::Element *dst,
-    Goldilocks::Element *src,
-    u_int64_t size,
-    u_int64_t ncols,
+    Goldilocks::Element *src, // src's length = size * 8 * ncols
+    u_int64_t size, // each poly's degree
+    u_int64_t ncols, // num of columns to run NTT
     Goldilocks::Element *buffer,
     u_int64_t nphase,
     u_int64_t nblock,
