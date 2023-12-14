@@ -18,10 +18,12 @@ private:
     // N = maxDomainSize
     // w = `N`-th root of unity
     // roots = { w^0, w^1, w^2, ..., w^(N - 1) }
+    // powTwoInv = { 1, 2^(-1), ..., 2^(-s) } and it's used to get N^(-1) which we need in iFFT
     Goldilocks::Element *roots; 
     Goldilocks::Element *powTwoInv;
-    // s = shift
+    // r = shift
     // r = { 1, r^1, r^2, ..., r^}
+    // r_ = N^(-1) * r
     Goldilocks::Element *r;
     Goldilocks::Element *r_;
     int extension;
@@ -62,6 +64,10 @@ private:
     }
 
 public:
+    // compute the following data for NTT
+    // 1. s (2-adicity)
+    // 2. roots = { 1, w^1, w^2, ..., w^(N-1) } where w is the $N$-th root of unity (N = maxDomainSize)
+    // 3. powTwoInv = { 1, 2^(-1), 2^(-2), ..., 2^(-s) }
     NTT_Goldilocks(u_int64_t maxDomainSize, u_int32_t _nThreads = 0, int extension_ = 1)
     {
 
@@ -72,8 +78,10 @@ public:
         nThreads = _nThreads == 0 ? omp_get_max_threads() : _nThreads;
         extension = extension_;
 
-        // TODO: assert (1 << domainPow == maxDomainSize)
+        // n = domainPow, N = maxDomainSize
+        // N = 2^n
         u_int32_t domainPow = NTT_Goldilocks::log2(maxDomainSize);
+        assert(1LL << domainPow == maxDomainSize);
 
         mpz_t m_qm1d2;
         mpz_t m_q;
@@ -87,24 +95,32 @@ public:
         u_int64_t negone = GOLDILOCKS_PRIME - 1;
 
         mpz_import(m_aux, 1, 1, sizeof(u_int64_t), 0, 0, &negone);
-        mpz_add_ui(m_q, m_aux, 1); //m_q = goldilocks_prime
-        mpz_fdiv_q_2exp(m_qm1d2, m_aux, 1); // (m_q-1)/2
+        // m_q = goldilocks_prime
+        mpz_add_ui(m_q, m_aux, 1); 
+        // (m_q-1)/2
+        mpz_fdiv_q_2exp(m_qm1d2, m_aux, 1); 
 
-        mpz_set_ui(m_nqr, 2); // m_nqr = 2
-        mpz_powm(m_aux, m_nqr, m_qm1d2, m_q); // m_aux = 2^((q-1)/2) (mod q)
-        // use the loop to find a quadratic non residue modulo the goldilocks_prime
+        // note(kunxian): 
+        //   use the loop to find a quadratic non residue (nqr)
+        //   modulo the goldilocks_prime
+        mpz_set_ui(m_nqr, 2); 
+        // start to try with m_nqr = 2
+        // m_aux = 2^((q-1)/2) (mod q)
+        mpz_powm(m_aux, m_nqr, m_qm1d2, m_q); 
         while (mpz_cmp_ui(m_aux, 1) == 0) 
         {
             mpz_add_ui(m_nqr, m_nqr, 1);
             mpz_powm(m_aux, m_nqr, m_qm1d2, m_q);
         }
 
-        // s is the 2-adicity of (q-1)
-        // q - 1 = 2^s * t
+        // 2-adicity of poseidon is 32
+        // s = domainPow
+        // q - 1 = 2^s * 2^(32 - s) * t
         s = 1;
         mpz_set(m_aux, m_qm1d2); // m_aux = (q-1) / 2
         while ((!mpz_tstbit(m_aux, 0)) && (s < domainPow))
         {
+            // m_aux = (m_aux-1)/2
             mpz_fdiv_q_2exp(m_aux, m_aux, 1);
             s++;
         }
@@ -119,9 +135,9 @@ public:
         assert(s <= 32);
         uint64_t nRoots = 1LL << s;
 
-        // roots = { 1, w^1, w^2, .... } where w is `maxDomainSize`-th root of unity
+        // roots = { 1, w^1, w^2, ...., w^(N-1) } where w is `maxDomainSize`-th root of unity
         roots = (Goldilocks::Element *)malloc(nRoots * sizeof(Goldilocks::Element));
-        // powTwoInv = { 1, 2^(-1), 2^(-2), ... }
+        // powTwoInv = { 1, 2^(-1), 2^(-2), ..., 2^(-s) }
         powTwoInv = (Goldilocks::Element *)malloc((s + 1) * sizeof(Goldilocks::Element));
 
         roots[0] = Goldilocks::one();
@@ -146,10 +162,13 @@ public:
         // calculate the rest of roots of unity
         for (uint64_t i = 2; i < nRoots; i++)
         {
+            // roots[i] = w^i
             roots[i] = roots[i - 1] * roots[1];
         }
+        // aux = w^N = 1
         Goldilocks::Element aux = roots[nRoots - 1] * roots[1];
         assert(Goldilocks::toU64(aux) == 1);
+
         for (uint64_t i = 2; i <= s; i++)
         {
             powTwoInv[i] = powTwoInv[i - 1] * powTwoInv[1];
@@ -160,6 +179,7 @@ public:
         mpz_clear(m_nqr);
         mpz_clear(m_aux);
     };
+
     ~NTT_Goldilocks()
     {
         if (s != 0)
@@ -178,14 +198,18 @@ public:
     }
     inline void computeR(int N)
     {
+        // r[i] = shift^i
+        // r = { 1, shift^1, shift^2, ..., shift^(N-1) }
+        // r_ = N^(-1) * r 
         u_int64_t domainPow = log2(N);
         r = new Goldilocks::Element[N];
         r_ = new Goldilocks::Element[N];
         r[0] = Goldilocks::one();
+        // r_[0] = N^(-1)
         r_[0] = powTwoInv[domainPow];
         for (int i = 1; i < N; i++)
         {
-            // doc: used to gen coset = shift * unity_of_roots_group.
+            // note(kunxian): used to gen coset = shift * unity_of_roots group.
             Goldilocks::mul(r[i], r[i - 1], Goldilocks::shift());
             Goldilocks::mul(r_[i], r[i], powTwoInv[domainPow]);
         }
@@ -212,8 +236,13 @@ public:
               u_int64_t nblock = NUM_BLOCKS,
               bool extend = false);
     void reversePermutation(Goldilocks::Element *dst, Goldilocks::Element *src, u_int64_t size, u_int64_t offset_cols, u_int64_t ncols, u_int64_t ncols_all);
+
+    // return the twiddle factor w'^idx at layer domainPow.
     inline Goldilocks::Element &root(u_int32_t domainPow, u_int64_t idx)
     {
+        // w' = w^(s-domain)
+        // w'^(domainPow) = 1 => w' is the `domainPow`-th root of unity
+        // w'^(idx)
         return roots[idx << (s - domainPow)];
     }
     // input has length N * ncols
