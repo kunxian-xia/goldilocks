@@ -81,7 +81,7 @@ public:
         // n = domainPow, N = maxDomainSize
         // N = 2^n
         u_int32_t domainPow = NTT_Goldilocks::log2(maxDomainSize);
-        assert(1LL << domainPow == maxDomainSize);
+        assert(1UL << domainPow == maxDomainSize);
 
         mpz_t m_qm1d2;
         mpz_t m_q;

@@ -53,16 +53,18 @@ $(BUILD_DIR)/%.cc.o: %.cc
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/test: tests/tests.cpp
-	$(CXX) -o $@ $< $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+test: tests/tests.cpp
+	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
 
-$(BUILD_DIR)/bench: benchs/bench.cpp
-	$(CXX) -o $@ $< $(BUILD_DIR)/$(SRC_DIRS)/*.o $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+bench: benchs/bench.cpp
+	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
 
 .PHONY: clean
 
 clean:
 	$(RM) -r $(BUILD_DIR)
+	$(RM) bench
+	$(RM) test
 
 -include $(DEPS)
 
