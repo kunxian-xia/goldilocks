@@ -53,10 +53,17 @@ $(BUILD_DIR)/%.cc.o: %.cc
 	$(MKDIR_P) $(dir $@)
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
+bench_avx2: benchs/bench.cpp
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+
+bench_avx512: benchs/bench.cpp
+	$(CXX) $(CFLAGS) $(CPPFLAGS) -mavx512 $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
+
 .PHONY: clean
 
 clean:
 	$(RM) -r $(BUILD_DIR)
+	$(RM) bench_avx2 bench_avx512
 
 -include $(DEPS)
 
