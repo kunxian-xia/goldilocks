@@ -4,14 +4,26 @@ BUILD_DIR := ./build
 SRC_DIRS := ./src
 TEST_DIRS := ./test
 
-LIBOMP := $(shell find /usr/lib/llvm-* -name "libomp.so" | sed 's/libomp.so//')
+# Check if the operating system is macOS
+ifeq ($(shell uname), Darwin)
+	LIBOMP := $(shell find /opt/homebrew/ -name "libomp.dylib" | sed 's/libomp.dylib//')
+	OMP_ERROR_PROMPT := "you need to install libomp using 'brew install libomp'"
+# Check if the operating system is Linux
+else ifeq ($(shell uname), Linux)
+	LIBOMP := $(shell find /usr/lib/llvm-* -name "libomp.so" | sed 's/libomp.so//')
+	OMP_ERROR_PROMPT := "you need to install libomp-dev"
+else
+	LIBOMP :=
+	OMP_ERROR_PROMPT := "Unsupported operating system"
+endif
+
 ifndef LIBOMP
-$(error LIBOMP is not set, you need to install libomp-dev)
+$(error LIBOMP is not set, $(OMP_ERROR_PROMPT))
 endif
 
 #CXX := mpiCC
 CXX = g++
-CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp -mavx2
+CXXFLAGS := -std=c++17 -Wall -pthread -fopenmp
 LDFLAGS := -lpthread -lgmp -lstdc++ -lomp -lgmpxx -lgtest -lbenchmark -L$(LIBOMP)
 ASFLAGS := -felf64 
 
@@ -58,6 +70,12 @@ test: tests/tests.cpp
 
 bench: benchs/bench.cpp
 	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+
+bench_avx2: benchs/bench.cpp
+	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) -mavx2 $(LDFLAGS)
+
+bench_avx512: benchs/bench.cpp
+	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) -mavx512 $(LDFLAGS)
 
 .PHONY: clean
 
