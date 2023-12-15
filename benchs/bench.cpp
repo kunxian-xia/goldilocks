@@ -125,10 +125,10 @@ static void POSEIDON_BENCH_FULL_AVX(benchmark::State &state)
         }
     }
     // Check poseidon results poseidon ( 0 1 1 2 3 5 8 13 21 34 55 89 )
-    /*assert(Goldilocks::toU64(result[0]) == 0X3095570037F4605D);
+    assert(Goldilocks::toU64(result[0]) == 0X3095570037F4605D);
     assert(Goldilocks::toU64(result[1]) == 0X3D561B5EF1BC8B58);
     assert(Goldilocks::toU64(result[2]) == 0X8129DB5EC75C3226);
-    assert(Goldilocks::toU64(result[3]) == 0X8EC2B67AFB6B87ED);*/
+    assert(Goldilocks::toU64(result[3]) == 0X8EC2B67AFB6B87ED);
 
     // Rate = time to process 1 posseidon per thread
     // BytesProcessed = total bytes processed per second on every iteration

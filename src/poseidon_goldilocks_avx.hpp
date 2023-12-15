@@ -5,22 +5,24 @@
 #include "goldilocks_base_field.hpp"
 #include <immintrin.h>
 
+// state width = 12
+// __m256i can hold 4 Goldilocks elements, therefore we need 3 __m256i
 inline void PoseidonGoldilocks::pow7_avx(__m256i &st0, __m256i &st1, __m256i &st2)
 {
     __m256i pw2_0, pw2_1, pw2_2;
-    Goldilocks::square_avx(pw2_0, st0);
+    Goldilocks::square_avx(pw2_0, st0); // x^2
     Goldilocks::square_avx(pw2_1, st1);
     Goldilocks::square_avx(pw2_2, st2);
     __m256i pw4_0, pw4_1, pw4_2;
-    Goldilocks::square_avx(pw4_0, pw2_0);
+    Goldilocks::square_avx(pw4_0, pw2_0); // x^4
     Goldilocks::square_avx(pw4_1, pw2_1);
     Goldilocks::square_avx(pw4_2, pw2_2);
     __m256i pw3_0, pw3_1, pw3_2;
-    Goldilocks::mult_avx(pw3_0, pw2_0, st0);
+    Goldilocks::mult_avx(pw3_0, pw2_0, st0); // x^3
     Goldilocks::mult_avx(pw3_1, pw2_1, st1);
     Goldilocks::mult_avx(pw3_2, pw2_2, st2);
 
-    Goldilocks::mult_avx(st0, pw3_0, pw4_0);
+    Goldilocks::mult_avx(st0, pw3_0, pw4_0); // x^7
     Goldilocks::mult_avx(st1, pw3_1, pw4_1);
     Goldilocks::mult_avx(st2, pw3_2, pw4_2);
 };

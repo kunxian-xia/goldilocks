@@ -114,6 +114,8 @@ void PoseidonGoldilocks::hash_full_result_seq_old(Goldilocks::Element (&state)[S
         }
     }
 }
+
+// apply poseidon permutation on state = input
 void PoseidonGoldilocks::hash_full_result_seq(Goldilocks::Element *state, const Goldilocks::Element *input)
 {
     const int length = SPONGE_WIDTH * sizeof(Goldilocks::Element);
@@ -232,10 +234,13 @@ void PoseidonGoldilocks::linear_hash_seq(Goldilocks::Element *output, Goldilocks
     {
         if (remaining == size)
         {
+            // [in0, in1, in2, in3, ..., in7, 0, 0, 0, 0]
+            // init the capacity to 0 at the start of hashing
             memset(state + RATE, 0, CAPACITY * sizeof(Goldilocks::Element));
         }
         else
         {
+            // copy the first 4 elements of previous permutation's state to capacity part.
             std::memcpy(state + RATE, state, CAPACITY * sizeof(Goldilocks::Element));
         }
 
@@ -258,6 +263,7 @@ void PoseidonGoldilocks::linear_hash_seq(Goldilocks::Element *output, Goldilocks
         memset(output, 0, CAPACITY * sizeof(Goldilocks::Element));
     }
 }
+
 void PoseidonGoldilocks::linear_hash(Goldilocks::Element *output, Goldilocks::Element *input, uint64_t size)
 {
     uint64_t remaining = size;
@@ -286,6 +292,7 @@ void PoseidonGoldilocks::linear_hash(Goldilocks::Element *output, Goldilocks::El
 
         std::memcpy(state, input + (size - remaining), n * sizeof(Goldilocks::Element));
 
+        // use the optimized poseidon permutation with avx2 instructions
         hash_full_result(state, state);
 
         remaining -= n;
