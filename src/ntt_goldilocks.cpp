@@ -125,27 +125,31 @@ void NTT_Goldilocks::NTT_iters(
                     j = j % mdiv2;
 
                     Goldilocks::Element w = root(s + si, j);
-                    // doc: butterfly operation
-                    for (u_int64_t k = 0; (k < ncols) && ((k + 4) < ncols); k += 4) 
-                    {
-                        // TODO: use avx512 / avx2 to improve
-                        // k-th polynomial
-                        Goldilocks::Element t[4];
-                        Goldilocks::Element u[4];
-                        Goldilocks::mul_avx(t, w, &a[offset1+k], 1);
-                        Goldilocks::copy_avx(u, &a[offset2+k]);
 
-                        Goldilocks::add_avx(&a[offset2+k], t, u);
-                        Goldilocks::sub_avx(&a[offset1+k], u, t);
-                    }
-                    for (u_int64_t k = 4* (ncols / 4); k < ncols; ++k)
-                    {
-                        Goldilocks::Element t = w * a[offset1 + k];
-                        Goldilocks::Element u = a[offset2 + k];
+                    if (enable_avx == true) {
+                        Goldilocks::Element t4[4];
+                        Goldilocks::Element u4[4];
+                        Goldilocks::Element w4[4] = {w,w,w,w};
+                        // boundary cases where `ncols%4 != 0` is not handled
+                        for (u_int64_t k = 0; k < ncols; k+=4) {
+                            Goldilocks::mul_avx(t4, w4, &a[offset1 + k]);
+                            Goldilocks::copy_avx(u4, &a[offset2 + k]);
 
-                        Goldilocks::add(a[offset2 + k], t, u);
-                        Goldilocks::sub(a[offset1 + k], u, t);
+                            Goldilocks::add_avx(&a[offset2 + k], t4, u4);
+                            Goldilocks::sub_avx(&a[offset1 + k], u4, t4);
+                        }
                     }
+                    else {
+                        for (u_int64_t k = 0; k < ncols; ++k)
+                        {
+                            Goldilocks::Element t = w * a[offset1 + k];
+                            Goldilocks::Element u = a[offset2 + k];
+
+                            Goldilocks::add(a[offset2 + k], t, u);
+                            Goldilocks::sub(a[offset1 + k], u, t);
+                        }
+                    }
+
                 }
             }
             if (s + maxBatchPow <= domainPow || !inverse)

@@ -66,7 +66,7 @@ $(BUILD_DIR)/%.cc.o: %.cc
 	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS) -c $< -o $@
 
 test: tests/tests.cpp
-	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) -mavx2 $(LDFLAGS)
 
 bench: benchs/bench.cpp
 	$(CXX) -o $@ $< $(SRC_DIRS)/*.cpp $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)

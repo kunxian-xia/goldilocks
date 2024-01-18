@@ -27,6 +27,7 @@ private:
     Goldilocks::Element *r;
     Goldilocks::Element *r_;
     int extension;
+    bool enable_avx = false;
 
     static u_int32_t log2(u_int64_t size)
     {
@@ -68,9 +69,9 @@ public:
     // 1. s (2-adicity)
     // 2. roots = { 1, w^1, w^2, ..., w^(N-1) } where w is the $N$-th root of unity (N = maxDomainSize)
     // 3. powTwoInv = { 1, 2^(-1), 2^(-2), ..., 2^(-s) }
-    NTT_Goldilocks(u_int64_t maxDomainSize, u_int32_t _nThreads = 0, int extension_ = 1)
+    NTT_Goldilocks(u_int64_t maxDomainSize, u_int32_t _nThreads = 0, int extension_ = 1, bool enable_avx_ = false)
     {
-
+        enable_avx = enable_avx_;
         r = NULL;
         r_ = NULL;
         if (maxDomainSize == 0)

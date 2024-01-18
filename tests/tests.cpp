@@ -8,10 +8,13 @@
 #include "../src/ntt_goldilocks.hpp"
 #include "../src/merklehash_goldilocks.hpp"
 #include <immintrin.h>
+#include <chrono>
+using namespace std::chrono;
 
 #define GOLDILOCKS_PRIME 0xFFFFFFFF00000001ULL
 
 #define FFT_SIZE (1 << 4)
+#define FFT_SIZE_X (1 << 18)
 #define NUM_REPS 5
 #define BLOWUP_FACTOR 1
 #define NUM_COLUMNS 8
@@ -1149,6 +1152,117 @@ TEST(GOLDILOCKS_TEST, ntt)
     free(a);
     free(initial);
 }
+
+TEST(GOLDILOCKS_TEST, ntt_columns_smid)
+{
+    // k=16 with 4 columns <> avx256: 4 x Goldilocks::Element
+    NTT_Goldilocks normal_1thread_ntt(FFT_SIZE_X, 1/*nThreads*/, 1/*extension*/, false/*enable_avx*/);
+    NTT_Goldilocks normal_maxthread_ntt(FFT_SIZE_X, 0/*nThreads: max*/, 1/*extension*/, false/*enable_avx*/);
+    NTT_Goldilocks avx_1thread_ntt(FFT_SIZE_X, 1/*nThreads*/, 1/*extension*/, true/*enable_avx*/);
+    NTT_Goldilocks avx_maxthread_ntt(FFT_SIZE_X, 0/*nThreads: max*/, 1/*extension*/, true/*enable_avx*/);
+    Goldilocks::Element *a = (Goldilocks::Element *)malloc(FFT_SIZE_X * NUM_COLUMNS * sizeof(Goldilocks::Element));
+    Goldilocks::Element *initial = (Goldilocks::Element *)malloc(FFT_SIZE_X * NUM_COLUMNS * sizeof(Goldilocks::Element));
+
+    // init with fibonacci
+    for (uint i = 0; i < 2; i++) // a[0] and a[1] = Goldilocks::one();
+    {
+        for (uint j = 0; j < NUM_COLUMNS; j++)
+        {
+            Goldilocks::add(a[i * NUM_COLUMNS + j], Goldilocks::one(), Goldilocks::fromU64(j));
+        }
+    }
+
+    for (uint64_t i = 2; i < FFT_SIZE_X; i++)
+    {
+        for (uint j = 0; j < NUM_COLUMNS; j++)
+        {
+            a[i * NUM_COLUMNS + j] = a[NUM_COLUMNS * (i - 1) + j] + a[NUM_COLUMNS * (i - 2) + j];
+        }
+    }
+
+    std::memcpy(initial, a, FFT_SIZE_X * NUM_COLUMNS * sizeof(Goldilocks::Element));
+    // dst = src  [inplace]
+
+    // normal_1thread_ntt
+    {
+        auto start = high_resolution_clock::now();
+        for (int i = 0; i < NUM_REPS; i++)
+        {
+            normal_1thread_ntt.NTT(a, a, FFT_SIZE_X, NUM_COLUMNS);//, nullptr, 0, 0, false, false);
+            normal_1thread_ntt.INTT(a, a, FFT_SIZE_X, NUM_COLUMNS);
+        }
+        auto stop = high_resolution_clock::now();
+        // auto duration = duration_cast<microseconds>(stop - start);
+        duration<double> time_span = duration_cast<duration<double>>(stop - start) * 1000.0;
+        printf("normal_1thread_ntt [size]:%d  [reps]: %d (ntt+intt) >>> total: %f, average %f per ntt \n", FFT_SIZE_X, NUM_REPS, time_span, time_span/(NUM_REPS*2));
+
+        for (int i = 0; i < FFT_SIZE_X * NUM_COLUMNS; i++)
+        {
+            ASSERT_EQ(Goldilocks::toU64(a[i]), Goldilocks::toU64(initial[i]));
+        }
+    }
+
+    // normal_maxthread_ntt
+    {
+        auto start = high_resolution_clock::now();
+        for (int i = 0; i < NUM_REPS; i++)
+        {
+            normal_maxthread_ntt.NTT(a, a, FFT_SIZE_X, NUM_COLUMNS);//, nullptr, 0, 0, false, false);
+            normal_maxthread_ntt.INTT(a, a, FFT_SIZE_X, NUM_COLUMNS);
+        }
+        auto stop = high_resolution_clock::now();
+        // auto duration = duration_cast<microseconds>(stop - start);
+        duration<double> time_span = duration_cast<duration<double>>(stop - start) * 1000.0;
+        printf("normal_maxthread_ntt [size]:%d  [reps]: %d (ntt+intt) >>> total: %f, average %f per ntt \n", FFT_SIZE_X, NUM_REPS, time_span, time_span/(NUM_REPS*2));
+
+        for (int i = 0; i < FFT_SIZE_X * NUM_COLUMNS; i++)
+        {
+            ASSERT_EQ(Goldilocks::toU64(a[i]), Goldilocks::toU64(initial[i]));
+        }
+    }
+
+    // avx_1thread_ntt
+    {
+        auto start = high_resolution_clock::now();
+        for (int i = 0; i < NUM_REPS; i++)
+        {
+            avx_1thread_ntt.NTT(a, a, FFT_SIZE_X, NUM_COLUMNS);//, nullptr, 0, 0, false, false);
+            avx_1thread_ntt.INTT(a, a, FFT_SIZE_X, NUM_COLUMNS);
+        }
+        auto stop = high_resolution_clock::now();
+        // auto duration = duration_cast<microseconds>(stop - start);
+        duration<double> time_span = duration_cast<duration<double>>(stop - start) * 1000.0;
+        printf("avx_1thread_ntt [size]:%d  [reps]: %d (ntt+intt) >>> total: %f, average %f per ntt \n", FFT_SIZE_X, NUM_REPS, time_span, time_span/(NUM_REPS*2));
+
+        for (int i = 0; i < FFT_SIZE_X * NUM_COLUMNS; i++)
+        {
+            ASSERT_EQ(Goldilocks::toU64(a[i]), Goldilocks::toU64(initial[i]));
+        }
+    }
+
+    // avx_maxthread_ntt
+    {
+        auto start = high_resolution_clock::now();
+        for (int i = 0; i < NUM_REPS; i++)
+        {
+            avx_maxthread_ntt.NTT(a, a, FFT_SIZE_X, NUM_COLUMNS);//, nullptr, 0, 0, false, false);
+            avx_maxthread_ntt.INTT(a, a, FFT_SIZE_X, NUM_COLUMNS);
+        }
+        auto stop = high_resolution_clock::now();
+        // auto duration = duration_cast<microseconds>(stop - start);
+        duration<double> time_span = duration_cast<duration<double>>(stop - start) * 1000.0;
+        printf("avx_maxthread_ntt [size]:%d  [reps]: %d (ntt+intt) >>> total: %f, average %f per ntt \n", FFT_SIZE_X, NUM_REPS, time_span, time_span/(NUM_REPS*2));
+
+        for (int i = 0; i < FFT_SIZE_X * NUM_COLUMNS; i++)
+        {
+            ASSERT_EQ(Goldilocks::toU64(a[i]), Goldilocks::toU64(initial[i]));
+        }
+    }
+
+    free(a);
+    free(initial);
+}
+
 TEST(GOLDILOCKS_TEST, ntt_block)
 {
     Goldilocks::Element *a = (Goldilocks::Element *)malloc(FFT_SIZE * NUM_COLUMNS * sizeof(Goldilocks::Element));
