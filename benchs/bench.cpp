@@ -444,6 +444,62 @@ static void NTT_BLOCK_BENCH(benchmark::State &state)
     free(a);
 }
 
+
+static void SimdNTTArguments(benchmark::internal::Benchmark* b) {
+    bool enable_avx[2] = {false, true};
+    // bool enable_comupation[2] = {true, true};
+    uint32_t fft_degree[] = {18, 20, 23};
+    uint32_t fft_column[] = {8, 32, 64, 128, 256, 512};
+    uint32_t num_threads[2] = {1, omp_get_max_threads()};
+    for (auto avx : enable_avx)
+        for (auto degree : fft_degree)
+            for (auto column : fft_column)
+                for (auto threads : num_threads)
+                    b->Args({avx, degree, column, threads});
+}
+
+static void NTT_BLOCK_SIMD_BENCH(benchmark::State &state)
+{
+    // make bench_avx2
+    // ./bench_avx2 --benchmark_filter=NTT_BLOCK_SIMD_BENCH
+    const uint32_t MAX_NTT_DEGREE = 23;                 // SimdNTTArguments
+    const uint32_t MAX_NTT_COLUMN = 512;                // SimdNTTArguments
+    const uint32_t MAX_NTT_SIZE = 1 << MAX_NTT_DEGREE;  // SimdNTTArguments
+    Goldilocks::Element *a = (Goldilocks::Element *)malloc((uint64_t)MAX_NTT_SIZE * (uint64_t)MAX_NTT_COLUMN * sizeof(Goldilocks::Element));
+
+    for (uint i = 0; i < 2; i++)
+    {
+        for (uint j = 0; j < MAX_NTT_COLUMN; j++)
+        {
+            Goldilocks::add(a[i * MAX_NTT_COLUMN + j], Goldilocks::one(), Goldilocks::fromU64(j));
+        }
+    }
+
+    for (uint64_t i = 2; i < MAX_NTT_SIZE; i++)
+    {
+        for (uint j = 0; j < MAX_NTT_COLUMN; j++)
+        {
+            a[i * MAX_NTT_COLUMN + j] = a[MAX_NTT_COLUMN * (i - 1) + j] + a[MAX_NTT_COLUMN * (i - 2) + j];
+        }
+    }
+
+    for (auto _ : state)
+    {
+        state.PauseTiming();
+        auto avx     = state.range(0);
+        auto degree  = state.range(1);
+        auto column  = state.range(2);
+        auto threads = state.range(3);
+        auto fft_size = 1 << degree;
+        NTT_Goldilocks gntt(fft_size, threads, 1/*extention*/, avx);
+        state.ResumeTiming();
+
+        gntt.NTT(a, a, fft_size, column, NULL, NPHASES_NTT, NBLOCKS);
+    }
+
+    free(a);
+}
+
 static void LDE_BENCH(benchmark::State &state)
 {
     // column-major matrix
@@ -681,6 +737,12 @@ BENCHMARK(NTT_BLOCK_BENCH)
     //->DenseRange(omp_get_max_threads() / 2 - 8, omp_get_max_threads() / 2 + 8, 2)
     ->DenseRange(omp_get_max_threads() / 2, omp_get_max_threads(), omp_get_max_threads() / 2)
     ->UseRealTime();
+
+BENCHMARK(NTT_BLOCK_SIMD_BENCH)
+    ->Unit(benchmark::kMillisecond)
+    ->UseRealTime()
+    ->Apply(SimdNTTArguments);
+
 BENCHMARK(LDE_BENCH)
     ->Unit(benchmark::kSecond)
     //->DenseRange(1, 1, 1)
